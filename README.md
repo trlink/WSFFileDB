@@ -16,7 +16,8 @@ CWSFFileDB db((fs::SDFS*)&SD, "/data.tbl", (int*)&nFields, 3, true);
 The data-file will be created and you can now open a recordset to read or manipulate data:
 
 `
-//create the recordset 
+//create the recordset
+
 CWSFFileDBRecordset rs(&db);
 `
 
