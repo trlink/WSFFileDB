@@ -61,6 +61,20 @@ class CWSFFileDB
     bool insertData(void **pData);
 
 
+	/**
+	 * This method creates a row in the table without data (everything is set to 0x0). The return value is a position
+	 * of the entry and will be returned as valid recordset. You can use the Recordset-Class to individually set each
+	 * position in the entry by calling set data.
+	 *
+	 * This function is used, to save memory, when the tables or values have a huge amount of memory allocated...
+	 */
+	uint32_t insertEmptyDataRow();
+
+
+	//returns the position of the last insert
+	//this value can be used to open the recordset
+	uint32_t getLastInsertPos();
+
     /**
      * returns the number of records in the file...
      */
@@ -83,6 +97,7 @@ class CWSFFileDB
     uint32_t  m_dwRecordCount;
     uint32_t  m_dwNextFreePos;
     uint32_t  m_dwTableSize;
+	uint32_t  m_dwLastInsertPos;
     bool      m_bCreateIfNotExist;  
     int       m_nEntrySize;  
     bool      m_bDbOpen;   
@@ -124,6 +139,10 @@ class CWSFFileDBRecordset
 
 
     uint32_t getRecordPos();
+
+
+	//like rs.EOF
+    bool    haveValidEntry();
     
 
   private:
@@ -135,6 +154,11 @@ class CWSFFileDBRecordset
     CWSFFileDB *m_pDB;
     uint32_t    m_dwPos;
     bool        m_bHaveValidEntry;
+
+
+  protected:
+
+	int     getData(int nFieldIndex, void *pData, int nMaxSize, bool bInternal);
 };
 
 

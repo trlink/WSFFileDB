@@ -211,6 +211,13 @@ bool CWSFFileDBRecordset::remove()
 };
 
 
+bool CWSFFileDBRecordset::haveValidEntry()
+{
+  return this->m_bHaveValidEntry;
+};
+
+
+
 bool CWSFFileDBRecordset::setData(int nFieldIndex, void *pData, int nLength)
 {
   //variables
@@ -254,15 +261,20 @@ bool CWSFFileDBRecordset::setData(int nFieldIndex, void *pData, int nLength)
 };
 
 
-
-
 int CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize)
+{
+	return this->getData(nFieldIndex, pData, nMaxSize, false);
+};
+
+
+
+int CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize, bool bInternal)
 {
   //variables
   ///////////
   int nStartRead = 1; //first byte indicator
 
-  if(this->m_bHaveValidEntry == true)
+  if((this->m_bHaveValidEntry == true) || (bInternal == true))
   {
     if((nFieldIndex >= 0) && (nFieldIndex < this->m_pDB->m_nFieldCount))
     {

@@ -16,6 +16,7 @@ CWSFFileDB::CWSFFileDB(fs::FS *fs, char *szFileName, int *pFields, int nFieldCou
   this->m_nEntrySize = this->calculateEntrySize();
   this->m_dwTableSize = 0;
   this->m_bDbOpen = false;
+  this->m_dwLastInsertPos = 0;
 };
 
 
@@ -267,6 +268,13 @@ bool CWSFFileDB::isOpen()
 
 
 
+uint32_t CWSFFileDB::getLastInsertPos()
+{
+  return this->m_dwLastInsertPos;
+};
+
+
+
 bool CWSFFileDB::insertData(void **pData)
 {
   //variables
@@ -280,6 +288,7 @@ bool CWSFFileDB::insertData(void **pData)
   {
     if(this->m_file)
     {
+	  this->m_dwLastInsertPos = this->m_dwNextFreePos;
       this->m_file.seek(this->m_dwNextFreePos);
       this->m_file.write(1);  //set entry in use
     
