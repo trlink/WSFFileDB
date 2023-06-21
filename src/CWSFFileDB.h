@@ -79,6 +79,12 @@ class CWSFFileDB
      * returns the number of records in the file...
      */
     uint32_t getRecordCount();
+
+
+	/**
+	 * This method returns the amount of memory needed to store an entry into memory
+	 */
+	int getEntrySize();
     
 
     

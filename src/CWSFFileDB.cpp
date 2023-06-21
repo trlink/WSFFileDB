@@ -30,6 +30,11 @@ CWSFFileDB::~CWSFFileDB()
 };
 
 
+int CWSFFileDB::getEntrySize()
+{
+  return this->m_nEntrySize;
+};
+
 
 uint32_t CWSFFileDB::getRecordCount()
 {
