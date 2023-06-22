@@ -18,7 +18,7 @@
 
 //defines
 /////////
-#define WSFFileDB_Debug 0 //set to 0 if debugging is not used
+#define WSFFileDB_Debug 1 //set to 0 if debugging is not used
 #define WSFFileDB_HeaderSize (sizeof(uint32_t) * 3)
 
 
@@ -117,11 +117,12 @@ class CWSFFileDB
     int  calculateEntrySize();
 };
 
+
+
+
+
 //this class implements an oledb style interface
-//it's like a select *, to apply filters, you need to overwrite the filter function and return true
-//if the entry matches, or false if not...
-//move-methods will call the filter function against each entry and move to the next entry which 
-//matches the filter
+//it's like a select *
 //
 //as in real live, to get the record count, you need to call moveLast first.... :D
 class CWSFFileDBRecordset
@@ -135,7 +136,8 @@ class CWSFFileDBRecordset
     bool    moveNext();
     bool    moveFirst();
 
-    int     getData(int nFieldIndex, void *pData, int nMaxSize);
+	bool     getData(int nFieldIndex, void *pData, int nMaxSize, bool bInternal);
+    bool     getData(int nFieldIndex, void *pData, int nMaxSize);
 
     //update
     bool    setData(int nFieldIndex, void *pData, int nLength);
@@ -152,19 +154,15 @@ class CWSFFileDBRecordset
     
 
   private:
-
-    virtual bool filter();
+	
+	
     
+	
     //variables
     ///////////
-    CWSFFileDB *m_pDB;
-    uint32_t    m_dwPos;
-    bool        m_bHaveValidEntry;
-
-
-  protected:
-
-	int     getData(int nFieldIndex, void *pData, int nMaxSize, bool bInternal);
+    CWSFFileDB 		*m_pDB;
+    uint32_t    	m_dwPos;
+    bool       		m_bHaveValidEntry;	
 };
 
 

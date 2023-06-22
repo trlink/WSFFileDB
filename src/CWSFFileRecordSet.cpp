@@ -47,7 +47,12 @@ CWSFFileDBRecordset::CWSFFileDBRecordset(CWSFFileDB *pDB, uint32_t dwPos)
         
         if(this->m_pDB->m_file.read() == 1)
         {
-          this->m_dwPos = dwPos;
+		  #if WSFFileDB_Debug == 1
+            Serial.print(F("DB RS: set pos to (on init): "));
+            Serial.println(this->m_dwPos);  
+          #endif
+          
+		  this->m_dwPos = dwPos;
           this->m_bHaveValidEntry = true;
         };
       };
@@ -72,15 +77,6 @@ uint32_t CWSFFileDBRecordset::getRecordPos()
   return 0;
 };
 
-
-bool CWSFFileDBRecordset::filter()
-{
-  #if WSFFileDB_Debug == 1
-    Serial.println(F("DB RS: No Filter"));
-  #endif 
-  
-  return true;
-};
 
 
 bool    CWSFFileDBRecordset::moveFirst()
@@ -146,21 +142,13 @@ bool    CWSFFileDBRecordset::moveNext()
 
         if(this->m_pDB->m_file.read() == 1)
         {
-          if(this->filter() == true)
-          {
-            #if WSFFileDB_Debug == 1
-              Serial.print(F("DB RS: filter match at: "));
-              Serial.println(this->m_dwPos);
-            #endif
+	      this->m_bHaveValidEntry = true;
 
-            this->m_bHaveValidEntry = true;
-        
-            return true;
-          };
+		  return true;		 
         };
 
         #if WSFFileDB_Debug == 1
-          Serial.print(F("DB RS: filter/use not matched at: "));
+          Serial.print(F("DB RS: use-flag not matched at: "));
           Serial.println(this->m_dwPos);
         #endif
       }
@@ -261,14 +249,14 @@ bool CWSFFileDBRecordset::setData(int nFieldIndex, void *pData, int nLength)
 };
 
 
-int CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize)
+bool CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize)
 {
 	return this->getData(nFieldIndex, pData, nMaxSize, false);
 };
 
 
 
-int CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize, bool bInternal)
+bool CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize, bool bInternal)
 {
   //variables
   ///////////
@@ -292,12 +280,12 @@ int CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize, boo
             this->m_pDB->m_file.seek(this->m_dwPos + nStartRead);
             this->m_pDB->m_file.read((byte*)pData, this->m_pDB->m_pFields[nFieldIndex]);
     
-            return this->m_pDB->m_pFields[nFieldIndex];
+            return true;
           };
         };
       };
     };
   };
   
-  return -1;
+  return false;
 };
