@@ -4,6 +4,11 @@
 
 
 
+
+
+
+
+
 CWSFFileDB::CWSFFileDB(fs::FS *fs, char *szFileName, int *pFields, int nFieldCount, bool bCreateIfNotExist)
 {
   strcpy(this->m_szFile, szFileName);
@@ -17,6 +22,7 @@ CWSFFileDB::CWSFFileDB(fs::FS *fs, char *szFileName, int *pFields, int nFieldCou
   this->m_dwTableSize = 0;
   this->m_bDbOpen = false;
   this->m_dwLastInsertPos = 0;
+  this->m_mutex = xSemaphoreCreateMutex();
 };
 
 
@@ -73,14 +79,16 @@ bool CWSFFileDB::readHeader()
   long lSize;
   byte bData[sizeof(uint32_t) + 1];
   
+  xSemaphoreTake(this->m_mutex, portMAX_DELAY);
   
   if(this->m_file)
   {
     lSize = this->m_file.size();
-    this->m_file.seek(0);
-  
+    
     if(lSize >= WSFFileDB_HeaderSize)
     {
+	  this->m_file.seek(0);
+	  
       this->m_dwRecordCount = 0;
       this->m_dwNextFreePos = 0;  
       this->m_dwTableSize = 0; 
@@ -95,7 +103,7 @@ bool CWSFFileDB::readHeader()
       memcpy(&this->m_dwTableSize, bData, sizeof(uint32_t));
   
       #if WSFFileDB_Debug == 1
-        Serial.print(F("DB: Open: FileSize: "));
+        Serial.print(F("DB: readHeader: FileSize: "));
         Serial.print(lSize);
         
         Serial.print(F(" RecCnt: "));
@@ -110,6 +118,8 @@ bool CWSFFileDB::readHeader()
         Serial.print(F(" - file: "));
         Serial.println(this->m_szFile); 
       #endif
+	  
+	  xSemaphoreGive(this->m_mutex);
       
       return true;
     }
@@ -118,6 +128,8 @@ bool CWSFFileDB::readHeader()
       #if WSFFileDB_Debug == 1
         Serial.println(F("DB: Header/Size failure"));
       #endif 
+	  
+	  xSemaphoreGive(this->m_mutex);
       
       return false;
     };
@@ -129,56 +141,62 @@ bool CWSFFileDB::readHeader()
     #endif
   };
   
+  xSemaphoreGive(this->m_mutex);
+  
   return false;
 };
 
 
 bool CWSFFileDB::writeHeader()
 {
-  //variables
-  ///////////
-  byte bData[sizeof(uint32_t) + 1];  
+	//variables
+	///////////
+	byte bData[sizeof(uint32_t) + 1];  
 
-  #if WSFFileDB_Debug == 1
-    Serial.println(F("DB: write Header"));
-  #endif 
+	#if WSFFileDB_Debug == 1
+		Serial.println(F("DB: write Header"));
+	#endif 
 
-  if(this->m_file)
-  {
-    this->m_file.seek(0);
-  
-    memcpy(bData, (uint32_t*)&this->m_dwRecordCount, sizeof(uint32_t));
-    this->m_file.write(bData, sizeof(uint32_t));
-    
-    memcpy(bData, (uint32_t*)&this->m_dwNextFreePos, sizeof(uint32_t));
-    this->m_file.write(bData, sizeof(uint32_t));
+	if(this->m_file)
+	{
+		xSemaphoreTake(this->m_mutex, portMAX_DELAY);
+		
+		this->m_file.seek(0);
 
-    memcpy(bData, (uint32_t*)&this->m_dwTableSize, sizeof(uint32_t));
-    this->m_file.write(bData, sizeof(uint32_t));
-    this->m_file.flush();
+		memcpy(bData, (uint32_t*)&this->m_dwRecordCount, sizeof(uint32_t));
+		this->m_file.write(bData, sizeof(uint32_t));
 
-    #if WSFFileDB_Debug == 1
-      Serial.print(F("DB: wrote header: RecCnt: "));
-      Serial.print(this->m_dwRecordCount);
-      Serial.print(F(" - next free: "));
-      Serial.print(this->m_dwNextFreePos);
-      Serial.print(F(" allocated TableSize; "));
-      Serial.print(this->m_dwTableSize);
-      Serial.print(F(" - file: "));
-      Serial.println(this->m_szFile); 
-    #endif
+		memcpy(bData, (uint32_t*)&this->m_dwNextFreePos, sizeof(uint32_t));
+		this->m_file.write(bData, sizeof(uint32_t));
 
-    return true;
-  }
-  else
-  {
-    #if WSFFileDB_Debug == 1
-      Serial.print(F("DB: failed to write header - file: "));
-      Serial.println(this->m_szFile); 
-    #endif
-  };   
+		memcpy(bData, (uint32_t*)&this->m_dwTableSize, sizeof(uint32_t));
+		this->m_file.write(bData, sizeof(uint32_t));
+		this->m_file.flush();
 
-  return false;
+		#if WSFFileDB_Debug == 1
+			Serial.print(F("DB: wrote header: RecCnt: "));
+			Serial.print(this->m_dwRecordCount);
+			Serial.print(F(" - next free: "));
+			Serial.print(this->m_dwNextFreePos);
+			Serial.print(F(" allocated TableSize; "));
+			Serial.print(this->m_dwTableSize);
+			Serial.print(F(" - file: "));
+			Serial.println(this->m_szFile); 
+		#endif
+		
+		xSemaphoreGive(this->m_mutex);
+
+		return true;
+	}
+	else
+	{
+		#if WSFFileDB_Debug == 1
+			Serial.print(F("DB: failed to write header - file: "));
+			Serial.println(this->m_szFile); 
+		#endif
+	};   
+
+	return false;
 };
 
 
@@ -279,107 +297,201 @@ uint32_t CWSFFileDB::getLastInsertPos()
 };
 
 
+int  CWSFFileDB::readFromDataFile(uint32_t dwPos, byte *pData, int nLen)
+{
+	//variables
+	///////////
+	int nRes;
+	
+	xSemaphoreTake(this->m_mutex, portMAX_DELAY);
+	
+	this->m_file.seek(dwPos);
+	nRes = this->m_file.read(pData, nLen);
+	
+	xSemaphoreGive(this->m_mutex);
+	
+	return nRes;
+};
+
+
+byte CWSFFileDB::readByteFromDataFile(uint32_t dwPos)
+{
+	//variables
+	///////////
+	byte bRes;
+	
+	xSemaphoreTake(this->m_mutex, portMAX_DELAY);
+	
+	this->m_file.seek(dwPos);
+	bRes = this->m_file.read();
+	
+	xSemaphoreGive(this->m_mutex);
+	
+	return bRes;
+};
+
+
+bool CWSFFileDB::removeEntry(uint32_t dwPos)
+{
+	//variables
+	///////////
+	byte bData[2];
+	bool bRes = false;
+	
+	bData[0] = 0;
+	
+	xSemaphoreTake(this->m_mutex, portMAX_DELAY);
+	
+	#if WSFFileDB_Debug == 1
+		Serial.print(F("DB: removeEntry() clear flag at: "));
+		Serial.println(dwPos);
+	#endif 
+	
+	
+	this->m_file.seek(dwPos);
+	
+	if(this->m_file.read() == 1)
+	{
+		this->m_file.seek(dwPos);
+		this->m_file.write((byte*)&bData, 1);
+		this->m_file.flush();
+		
+		this->m_dwRecordCount -= 1;
+		
+		if(this->m_dwNextFreePos > dwPos)
+		{
+			this->m_dwNextFreePos = dwPos;
+		};
+		
+		bRes = true;
+	}
+	else
+	{
+		#if WSFFileDB_Debug == 1
+			Serial.print(F("DB: removeEntry() failed to clear flag at: "));
+			Serial.println(dwPos);
+		#endif 
+	};	
+	
+	xSemaphoreGive(this->m_mutex);
+	
+	return bRes;
+};
+
+
+
+void CWSFFileDB::writeToDataFile(uint32_t dwPos, byte *pData, int nLen)
+{
+	xSemaphoreTake(this->m_mutex, portMAX_DELAY);
+	
+	this->m_file.seek(dwPos);
+	this->m_file.write((byte*)&pData, nLen);
+	this->m_file.flush();
+		
+	xSemaphoreGive(this->m_mutex);
+};
+
+
 
 bool CWSFFileDB::insertData(void **pData)
 {
   //variables
   ///////////
-  int      nPos = 1;
+  int      nPos = 0;
   uint32_t dwSeekPos = WSFFileDB_HeaderSize;
-  uint32_t dwFileSize;
+  byte 	   bData[this->m_nEntrySize + 2];
   byte     bFree;
 
   if(this->m_bDbOpen == true)
   {
     if(this->m_file)
     {
-	  this->m_dwLastInsertPos = this->m_dwNextFreePos;
-      this->m_file.seek(this->m_dwNextFreePos);
-      this->m_file.write(1);  //set entry in use
-    
-      for(int n = 0; n < this->m_nFieldCount; ++n)
-      {
-        this->m_file.write((byte*)pData[n], this->m_pFields[n]);
-        nPos += this->m_pFields[n];
-      };
+		xSemaphoreTake(this->m_mutex, portMAX_DELAY);
+		
+		memset((byte*)&bData, 0, sizeof(bData));
 
-      this->m_file.flush();
-    
-      #if WSFFileDB_Debug == 1
-        Serial.print(F("DB: insertData() data size:"));
-        Serial.print(nPos);
-        Serial.print(F(" table size: "));
-        Serial.print(this->m_dwTableSize);
-        Serial.print(F(" insert at pos: "));
-        Serial.println(this->m_dwNextFreePos);
-      #endif
-    
-      //increment rec count
-      this->m_dwRecordCount   += 1;
-      this->m_dwTableSize     += nPos;
-      
-      dwFileSize = this->m_file.size();
-  
-      #if WSFFileDB_Debug == 1
-        Serial.print(F("DB: insertData() file size after write: "));
-        Serial.println(dwFileSize); 
-      #endif 
-  
-      if((this->m_dwNextFreePos + nPos) == this->m_dwTableSize)
-      {
-        #if WSFFileDB_Debug == 1
-          Serial.print(F("DB: insertData() insert at end, new size: "));
-          Serial.println(this->m_dwTableSize); 
-        #endif 
-  
-        dwSeekPos = this->m_dwTableSize;  
-      }
-      else
-      {
-        //try to find next insert pos by itterating 
-        //through the whole file...    
-        dwSeekPos = WSFFileDB_HeaderSize;
-  
-        //search for next unused block
-        do 
-        {
-          this->m_file.seek(dwSeekPos);
-          bFree = this->m_file.read();
-    
-          #if WSFFileDB_Debug == 1
-            Serial.print(F("DB: insertDat() search: seek to: "));
-            Serial.print(dwSeekPos);
-            Serial.print(F(" in use: "));
-            Serial.println(bFree);
-          #endif  
-    
-          if(bFree == 0)
-          {
-            break;
-          }
-          else
-          {
-            dwSeekPos += this->m_nEntrySize;
-      
-            if(dwSeekPos >= this->m_dwTableSize)
-            {
-              dwSeekPos = this->m_dwTableSize;
-              break;
-            };
-          };
-        } 
-        while(bFree == 1);
-      };
+		bData[nPos++] = 1; //set entry in use
+
+		//copy data
+		for(int n = 0; n < this->m_nFieldCount; ++n)
+		{
+			memcpy((byte*)&bData + nPos, (byte*)pData[n], this->m_pFields[n]); 
+			nPos += this->m_pFields[n];
+		};
+
+		this->m_dwLastInsertPos = this->m_dwNextFreePos;
+
+		this->m_file.seek(this->m_dwNextFreePos);
+		this->m_file.write((byte*)&bData, nPos);
+		this->m_file.flush();
+
+		#if WSFFileDB_Debug == 1
+			Serial.print(F("DB: insertData() data size:"));
+			Serial.print(nPos);
+			Serial.print(F(" table size: "));
+			Serial.print(this->m_dwTableSize);
+			Serial.print(F(" insert at pos: "));
+			Serial.println(this->m_dwNextFreePos);
+		#endif
+
+		//increment rec count
+		this->m_dwRecordCount   += 1;
+
+
+		//try to find next insert pos by itterating 
+		//through the whole file...    
+		dwSeekPos = WSFFileDB_HeaderSize;
+
+		//search for next unused block from the beginning
+		//file.size() is unreliable...
+		do 
+		{
+			this->m_file.seek(dwSeekPos);
+			bFree = this->m_file.read();
+
+			#if WSFFileDB_Debug == 1
+				Serial.print(F("DB: insertData() search: seek to: "));
+				Serial.print(dwSeekPos);
+				Serial.print(F(" in use: "));
+				Serial.println(bFree);
+			#endif  
+
+			if(bFree != 1)
+			{
+				break;
+			}
+			else
+			{
+				dwSeekPos += (this->m_nEntrySize + 1);
+
+				if(dwSeekPos >= this->m_dwTableSize)
+				{
+					this->m_dwTableSize += this->m_nEntrySize + 1;
+					break;
+				};
+			};
+		} 
+		while(bFree == 1);
         
       
-      #if WSFFileDB_Debug == 1
-        Serial.print(F("DB: insertData() set new insert pos to: "));
-        Serial.println(dwSeekPos);
-      #endif  
-  
-      this->m_dwNextFreePos = dwSeekPos;
-      
-      return this->writeHeader();
+		#if WSFFileDB_Debug == 1
+			Serial.print(F("DB: insertData() set new insert pos to: "));
+			Serial.print(dwSeekPos);
+			Serial.print(F(" new table size: "));
+			Serial.println(this->m_dwTableSize);
+		#endif  
+
+		this->m_dwNextFreePos = dwSeekPos;
+
+		//correct the file, in case something got weird...
+		this->m_file.seek(this->m_dwNextFreePos);
+		this->m_file.write(0);  //set entry free
+		this->m_file.flush();
+		
+		xSemaphoreGive(this->m_mutex);
+		
+
+		return this->writeHeader();
     };
   };
   

@@ -14,7 +14,9 @@
 //includes
 //////////
 #include <Arduino.h>
+#include <mutex>
 #include <FS.h>
+
 
 //defines
 /////////
@@ -95,18 +97,19 @@ class CWSFFileDB
   
     //variables
     ///////////
-    File      m_file;
-    fs::FS   *m_fs;
-    char      m_szFile[33];
-    int      *m_pFields;
-    int       m_nFieldCount;
-    uint32_t  m_dwRecordCount;
-    uint32_t  m_dwNextFreePos;
-    uint32_t  m_dwTableSize;
-	uint32_t  m_dwLastInsertPos;
-    bool      m_bCreateIfNotExist;  
-    int       m_nEntrySize;  
-    bool      m_bDbOpen;   
+    File      			m_file;
+    fs::FS   			*m_fs;
+    char      			m_szFile[33];
+    int      			*m_pFields;
+    int       			m_nFieldCount;
+    uint32_t  			m_dwRecordCount;
+    uint32_t  			m_dwNextFreePos;
+    uint32_t  			m_dwTableSize;
+	uint32_t  			m_dwLastInsertPos;
+    bool      			m_bCreateIfNotExist;  
+    int       			m_nEntrySize;  
+    bool      			m_bDbOpen;   
+	SemaphoreHandle_t	m_mutex;
      
 
     bool openWrite();
@@ -115,6 +118,13 @@ class CWSFFileDB
     bool writeHeader();
 
     int  calculateEntrySize();
+	
+	
+	void writeToDataFile(uint32_t dwPos, byte *pData, int nLen);
+	byte readByteFromDataFile(uint32_t dwPos);
+	int  readFromDataFile(uint32_t dwPos, byte *pData, int nLen);
+	
+	bool removeEntry(uint32_t dwPos);
 };
 
 

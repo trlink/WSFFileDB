@@ -6,58 +6,46 @@
 
 CWSFFileDBRecordset::CWSFFileDBRecordset(CWSFFileDB *pDB)
 {
-  this->m_pDB             = pDB;
-  this->m_dwPos           = 0;
-  this->m_bHaveValidEntry = false;
+	this->m_pDB             = pDB;
+	this->m_dwPos           = 0;
+	this->m_bHaveValidEntry = false;
 
-  if(this->m_pDB->isOpen() == true)
-  {
-    if(this->m_pDB->m_file)
-    {
-      this->m_pDB->readHeader();
-
-      this->moveNext();
-    };
-  };
+	if(this->m_pDB->isOpen() == true)
+	{
+		this->moveNext();
+	};
 };
 
 
 CWSFFileDBRecordset::CWSFFileDBRecordset(CWSFFileDB *pDB, uint32_t dwPos)
 {
-  //variables
-  ///////////
-  uint32_t dwFileSize;  
+	//variables
+	///////////
+	uint32_t dwFileSize;  
 
-  this->m_pDB             = pDB;
-  this->m_dwPos           = 0;
-  this->m_bHaveValidEntry = false;
+	this->m_pDB             = pDB;
+	this->m_dwPos           = 0;
+	this->m_bHaveValidEntry = false;
 
-  //check pos
-  if(this->m_pDB->isOpen() == true)
-  {
-    if(this->m_pDB->m_file == true)
-    {
-      this->m_pDB->readHeader();
-      
-      dwFileSize = this->m_pDB->m_dwTableSize;
+	//check pos
+	if(this->m_pDB->isOpen() == true)
+	{
+		dwFileSize = this->m_pDB->m_dwTableSize;
 
-      if((dwPos >= WSFFileDB_HeaderSize) && (dwPos <= (dwFileSize - this->m_pDB->m_nEntrySize)))
-      {
-        this->m_pDB->m_file.seek(dwPos);
-        
-        if(this->m_pDB->m_file.read() == 1)
-        {
-		  #if WSFFileDB_Debug == 1
-            Serial.print(F("DB RS: set pos to (on init): "));
-            Serial.println(this->m_dwPos);  
-          #endif
-          
-		  this->m_dwPos = dwPos;
-          this->m_bHaveValidEntry = true;
-        };
-      };
-    };
-  };
+		if((dwPos >= WSFFileDB_HeaderSize) && (dwPos <= (dwFileSize - (this->m_pDB->m_nEntrySize + 1))))
+		{
+			if(this->m_pDB->readByteFromDataFile(dwPos) == 1)
+			{
+				#if WSFFileDB_Debug == 1
+					Serial.print(F("DB RS: set pos to (on init): "));
+					Serial.println(this->m_dwPos);  
+				#endif
+
+				this->m_dwPos = dwPos;
+				this->m_bHaveValidEntry = true;
+			};
+		};
+	};
 };
 
 
@@ -97,20 +85,19 @@ bool    CWSFFileDBRecordset::moveNext()
   //variables
   ///////////
   uint32_t dwFileSize;
-
+  
+  
   this->m_bHaveValidEntry = false;
   
   if(this->m_pDB->isOpen() == true)
   {
-    if(this->m_pDB->m_file)
-    {
       dwFileSize = this->m_pDB->m_dwTableSize;
       
       do
       {
         if((this->m_dwPos >= WSFFileDB_HeaderSize) || (dwFileSize <= WSFFileDB_HeaderSize))
         {
-          if((this->m_dwPos + this->m_pDB->m_nEntrySize) >= dwFileSize)
+          if((this->m_dwPos + (this->m_pDB->m_nEntrySize + 1)) >= dwFileSize)
           {
             #if WSFFileDB_Debug == 1
               Serial.print(F("DB RS: MoveNext reached EOF - size: "));
@@ -122,7 +109,7 @@ bool    CWSFFileDBRecordset::moveNext()
             return false;
           };
   
-          this->m_dwPos += this->m_pDB->m_nEntrySize;
+          this->m_dwPos += this->m_pDB->m_nEntrySize + 1;
         }
         else
         {
@@ -136,15 +123,11 @@ bool    CWSFFileDBRecordset::moveNext()
           Serial.println(dwFileSize);
         #endif
 
-        //read pos, every entry starts with a byte 
-        //indicating if the pos is in use (1) or not (0)
-        this->m_pDB->m_file.seek(this->m_dwPos);
-
-        if(this->m_pDB->m_file.read() == 1)
+        if(this->m_pDB->readByteFromDataFile(this->m_dwPos) == 1)
         {
-	      this->m_bHaveValidEntry = true;
+			this->m_bHaveValidEntry = true;
 
-		  return true;		 
+			return true;		 
         }
 		else
 		{
@@ -152,22 +135,9 @@ bool    CWSFFileDBRecordset::moveNext()
 			  Serial.print(F("DB RS: use-flag not matched at: "));
 			  Serial.println(this->m_dwPos);
 			#endif
-			
-			//check if pos < insert pos
-			if(this->m_pDB->m_dwNextFreePos > this->m_dwPos)
-			{
-				this->m_pDB->m_dwNextFreePos = this->m_dwPos;
-			};
 		};
 	  }
       while(true);
-    }
-    else
-    {
-      #if WSFFileDB_Debug == 1
-        Serial.println(F("DB RS: Failed to open file"));
-      #endif
-    };
   };
 
   return false;
@@ -177,33 +147,18 @@ bool    CWSFFileDBRecordset::moveNext()
 
 bool CWSFFileDBRecordset::remove()
 {
-  if(this->m_bHaveValidEntry == true)
-  {
-    if(this->m_pDB->isOpen() == true)
-    {
-      if(this->m_pDB->m_file)
-      {    
-        this->m_pDB->m_file.seek(this->m_dwPos);
-        this->m_pDB->m_file.write(0);
-        this->m_pDB->m_file.flush();
+	if(this->m_bHaveValidEntry == true)
+	{
+		if(this->m_pDB->isOpen() == true)
+		{
+			this->m_pDB->removeEntry(this->m_dwPos);
+			this->m_bHaveValidEntry = false;
 
-        this->m_pDB->m_dwRecordCount -= 1;
+			return true;
+		};
+	};
 
-        if(this->m_pDB->m_dwNextFreePos == this->m_pDB->m_dwTableSize)
-        {
-          this->m_pDB->m_dwNextFreePos  = this->m_dwPos;
-        };
-        
-        this->m_pDB->writeHeader();
-        
-        this->m_bHaveValidEntry = false;
-        
-        return true;
-      };
-    };
-  };
-  
-  return false;  
+	return false;  
 };
 
 
@@ -232,9 +187,7 @@ bool CWSFFileDBRecordset::setData(int nFieldIndex, void *pData, int nLength)
       if(nLength <= this->m_pDB->m_pFields[nFieldIndex])
       {
         if(this->m_pDB->isOpen() == true)
-        {
-          if(this->m_pDB->m_file)
-          {    
+        {   
             #if WSFFileDB_Debug == 1
               Serial.print(F("DB RS: setData() - at: "));
               Serial.print(this->m_dwPos);
@@ -242,12 +195,9 @@ bool CWSFFileDBRecordset::setData(int nFieldIndex, void *pData, int nLength)
               Serial.println(nStartRead);  
             #endif
             
-            this->m_pDB->m_file.seek(this->m_dwPos + nStartRead);
-            this->m_pDB->m_file.write((byte*)pData, nLength);
-            this->m_pDB->m_file.flush();
+			this->m_pDB->writeToDataFile(this->m_dwPos + nStartRead, (byte*)pData, nLength);
     
             return true;
-          };
         };
       };
     };
@@ -266,34 +216,33 @@ bool CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize)
 
 bool CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize, bool bInternal)
 {
-  //variables
-  ///////////
-  int nStartRead = 1; //first byte indicator
+	//variables
+	///////////
+	int nStartRead = 1; //first byte indicator
 
-  if((this->m_bHaveValidEntry == true) || (bInternal == true))
-  {
-    if((nFieldIndex >= 0) && (nFieldIndex < this->m_pDB->m_nFieldCount))
-    {
-      for(int n = 0; n < nFieldIndex; ++n)
-      {
-        nStartRead += this->m_pDB->m_pFields[n];
-      };
+	if((this->m_bHaveValidEntry == true) || (bInternal == true))
+	{
+		if((nFieldIndex >= 0) && (nFieldIndex < this->m_pDB->m_nFieldCount))
+		{
+			for(int n = 0; n < nFieldIndex; ++n)
+			{
+				nStartRead += this->m_pDB->m_pFields[n];
+			};
 
-      if(nMaxSize <= this->m_pDB->m_pFields[nFieldIndex])
-      {
-        if(this->m_pDB->isOpen() == true)
-        {
-          if(this->m_pDB->m_file)
-          {    
-            this->m_pDB->m_file.seek(this->m_dwPos + nStartRead);
-            this->m_pDB->m_file.read((byte*)pData, nMaxSize);
-    
-            return true;
-          };
-        };
-      };
-    };
-  };
-  
-  return false;
+			if(nMaxSize <= this->m_pDB->m_pFields[nFieldIndex])
+			{
+				if(this->m_pDB->isOpen() == true)
+				{
+					if(this->m_pDB->m_file)
+					{    
+						this->m_pDB->readFromDataFile(this->m_dwPos + nStartRead, (byte*)pData, nMaxSize);
+
+						return true;
+					};
+				};
+			};
+		};
+	};
+
+	return false;
 };
