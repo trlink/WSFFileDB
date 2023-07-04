@@ -96,15 +96,15 @@ bool CWSFFileDB::readHeader()
   
       #if WSFFileDB_Debug == 1
         Serial.print(F("DB: Open: FileSize: "));
-        Serial.println(lSize);
+        Serial.print(lSize);
         
-        Serial.print(F("RecCnt: "));
-        Serial.println(this->m_dwRecordCount);
+        Serial.print(F(" RecCnt: "));
+        Serial.print(this->m_dwRecordCount);
 
-        Serial.print(F("TabSize: "));
-        Serial.println(this->m_dwTableSize);
+        Serial.print(F(" TabSize: "));
+        Serial.print(this->m_dwTableSize);
     
-        Serial.print(F("NextFree: "));
+        Serial.print(F(" NextFree: "));
         Serial.print(this->m_dwNextFreePos);   
 
         Serial.print(F(" - file: "));
@@ -238,7 +238,7 @@ bool CWSFFileDB::open()
         };
 
         //create an empty file
-        this->m_fs->open(this->m_szFile, "w");
+        this->m_file 		  = this->m_fs->open(this->m_szFile, "w");
         
         this->m_bDbOpen       = true;
         this->m_dwRecordCount = 0;

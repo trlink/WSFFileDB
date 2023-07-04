@@ -97,7 +97,7 @@ class CWSFFileDB
     ///////////
     File      m_file;
     fs::FS   *m_fs;
-    char      m_szFile[60];
+    char      m_szFile[33];
     int      *m_pFields;
     int       m_nFieldCount;
     uint32_t  m_dwRecordCount;

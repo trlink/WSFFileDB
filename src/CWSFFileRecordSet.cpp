@@ -145,13 +145,21 @@ bool    CWSFFileDBRecordset::moveNext()
 	      this->m_bHaveValidEntry = true;
 
 		  return true;		 
-        };
-
-        #if WSFFileDB_Debug == 1
-          Serial.print(F("DB RS: use-flag not matched at: "));
-          Serial.println(this->m_dwPos);
-        #endif
-      }
+        }
+		else
+		{
+			#if WSFFileDB_Debug == 1
+			  Serial.print(F("DB RS: use-flag not matched at: "));
+			  Serial.println(this->m_dwPos);
+			#endif
+			
+			//check if pos < insert pos
+			if(this->m_pDB->m_dwNextFreePos > this->m_dwPos)
+			{
+				this->m_pDB->m_dwNextFreePos = this->m_dwPos;
+			};
+		};
+	  }
       while(true);
     }
     else
@@ -271,14 +279,14 @@ bool CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize, bo
         nStartRead += this->m_pDB->m_pFields[n];
       };
 
-      if(nMaxSize >= this->m_pDB->m_pFields[nFieldIndex])
+      if(nMaxSize <= this->m_pDB->m_pFields[nFieldIndex])
       {
         if(this->m_pDB->isOpen() == true)
         {
           if(this->m_pDB->m_file)
           {    
             this->m_pDB->m_file.seek(this->m_dwPos + nStartRead);
-            this->m_pDB->m_file.read((byte*)pData, this->m_pDB->m_pFields[nFieldIndex]);
+            this->m_pDB->m_file.read((byte*)pData, nMaxSize);
     
             return true;
           };
