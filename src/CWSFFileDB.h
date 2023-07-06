@@ -119,7 +119,7 @@ class CWSFFileDB
 
     int  calculateEntrySize();
 	
-	
+	void writeByteToDataFile(uint32_t dwPos, byte bData);
 	void writeToDataFile(uint32_t dwPos, byte *pData, int nLen);
 	byte readByteFromDataFile(uint32_t dwPos);
 	int  readFromDataFile(uint32_t dwPos, byte *pData, int nLen);

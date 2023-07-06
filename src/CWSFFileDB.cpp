@@ -379,13 +379,25 @@ bool CWSFFileDB::removeEntry(uint32_t dwPos)
 };
 
 
+void CWSFFileDB::writeByteToDataFile(uint32_t dwPos, byte bData)
+{
+	//variables
+	///////////
+	byte data[2];
+	
+	data[0] = bData;
+	
+	this->writeToDataFile(dwPos, (byte*)&data, 1);
+};
+
+
 
 void CWSFFileDB::writeToDataFile(uint32_t dwPos, byte *pData, int nLen)
 {
 	xSemaphoreTake(this->m_mutex, portMAX_DELAY);
 	
 	this->m_file.seek(dwPos);
-	this->m_file.write((byte*)&pData, nLen);
+	this->m_file.write(pData, nLen);
 	this->m_file.flush();
 		
 	xSemaphoreGive(this->m_mutex);

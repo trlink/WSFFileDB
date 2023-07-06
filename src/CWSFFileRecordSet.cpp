@@ -171,39 +171,44 @@ bool CWSFFileDBRecordset::haveValidEntry()
 
 bool CWSFFileDBRecordset::setData(int nFieldIndex, void *pData, int nLength)
 {
-  //variables
-  ///////////
-  int nStartRead = 1; //first byte use indicator
+	//variables
+	///////////
+	int nStartRead = 1; //first byte use indicator
+	int nWriteLen = nLength;
 
-  if(this->m_bHaveValidEntry == true)
-  {
-    if((nFieldIndex >= 0) && (nFieldIndex < this->m_pDB->m_nFieldCount))
-    {
-      for(int n = 0; n < nFieldIndex; ++n)
-      {
-        nStartRead += this->m_pDB->m_pFields[n];
-      };
+	if(this->m_bHaveValidEntry == true)
+	{
+		if((nFieldIndex >= 0) && (nFieldIndex < this->m_pDB->m_nFieldCount))
+		{
+			for(int n = 0; n < nFieldIndex; ++n)
+			{
+				nStartRead += this->m_pDB->m_pFields[n];
+			};
 
-      if(nLength <= this->m_pDB->m_pFields[nFieldIndex])
-      {
-        if(this->m_pDB->isOpen() == true)
-        {   
-            #if WSFFileDB_Debug == 1
-              Serial.print(F("DB RS: setData() - at: "));
-              Serial.print(this->m_dwPos);
-              Serial.print(F(" pos: "));
-              Serial.println(nStartRead);  
-            #endif
-            
-			this->m_pDB->writeToDataFile(this->m_dwPos + nStartRead, (byte*)pData, nLength);
-    
-            return true;
-        };
-      };
-    };
-  };
-  
-  return false;
+			if(nWriteLen > this->m_pDB->m_pFields[nFieldIndex])
+			{
+				nWriteLen = this->m_pDB->m_pFields[nFieldIndex];
+			};
+
+
+			if(this->m_pDB->isOpen() == true)
+			{   
+				#if WSFFileDB_Debug == 1
+					Serial.print(F("DB RS: setData() - at: "));
+					Serial.print(this->m_dwPos);
+					Serial.print(F(" pos: "));
+					Serial.println(nStartRead);  
+				#endif
+
+				this->m_pDB->writeByteToDataFile(this->m_dwPos, 1);
+				this->m_pDB->writeToDataFile(this->m_dwPos + nStartRead, (byte*)pData, nWriteLen);
+
+				return true;
+			};
+		};
+	};
+
+	return false;
 };
 
 
@@ -219,7 +224,8 @@ bool CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize, bo
 	//variables
 	///////////
 	int nStartRead = 1; //first byte indicator
-
+	int nWriteLen = nMaxSize;
+	
 	if((this->m_bHaveValidEntry == true) || (bInternal == true))
 	{
 		if((nFieldIndex >= 0) && (nFieldIndex < this->m_pDB->m_nFieldCount))
@@ -229,16 +235,18 @@ bool CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize, bo
 				nStartRead += this->m_pDB->m_pFields[n];
 			};
 
-			if(nMaxSize <= this->m_pDB->m_pFields[nFieldIndex])
+			if(nWriteLen > this->m_pDB->m_pFields[nFieldIndex])
 			{
-				if(this->m_pDB->isOpen() == true)
-				{
-					if(this->m_pDB->m_file)
-					{    
-						this->m_pDB->readFromDataFile(this->m_dwPos + nStartRead, (byte*)pData, nMaxSize);
+				nWriteLen = this->m_pDB->m_pFields[nFieldIndex];
+			};
+				
+			if(this->m_pDB->isOpen() == true)
+			{
+				if(this->m_pDB->m_file)
+				{    
+					this->m_pDB->readFromDataFile(this->m_dwPos + nStartRead, (byte*)pData, nWriteLen);
 
-						return true;
-					};
+					return true;
 				};
 			};
 		};
