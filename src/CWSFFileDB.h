@@ -63,14 +63,6 @@ class CWSFFileDB
     bool insertData(void **pData);
 
 
-	/**
-	 * This method creates a row in the table without data (everything is set to 0x0). The return value is a position
-	 * of the entry and will be returned as valid recordset. You can use the Recordset-Class to individually set each
-	 * position in the entry by calling set data.
-	 *
-	 * This function is used, to save memory, when the tables or values have a huge amount of memory allocated...
-	 */
-	uint32_t insertEmptyDataRow();
 
 
 	//returns the position of the last insert

@@ -37,15 +37,28 @@ CWSFFileDBRecordset::CWSFFileDBRecordset(CWSFFileDB *pDB, uint32_t dwPos)
 			if(this->m_pDB->readByteFromDataFile(dwPos) == 1)
 			{
 				#if WSFFileDB_Debug == 1
-					Serial.print(F("DB RS: set pos to (on init): "));
+					Serial.print(F("DB RS("));
+					Serial.print(this->m_pDB->m_szFile);
+					Serial.print(F("): "));
+					Serial.print(F("set pos to (on init): "));
 					Serial.println(this->m_dwPos);  
 				#endif
 
 				this->m_dwPos = dwPos;
 				this->m_bHaveValidEntry = true;
+				
+				return;
 			};
 		};
 	};
+	
+	#if WSFFileDB_Debug == 1
+		Serial.print(F("DB RS("));
+		Serial.print(this->m_pDB->m_szFile);
+		Serial.print(F("): "));
+		Serial.print(F("failed to set pos to (on init): "));
+		Serial.println(this->m_dwPos);  
+	#endif
 };
 
 
@@ -97,19 +110,22 @@ bool    CWSFFileDBRecordset::moveNext()
       {
         if((this->m_dwPos >= WSFFileDB_HeaderSize) || (dwFileSize <= WSFFileDB_HeaderSize))
         {
-          if((this->m_dwPos + (this->m_pDB->m_nEntrySize + 1)) >= dwFileSize)
+          if((this->m_dwPos + this->m_pDB->m_nEntrySize) >= dwFileSize)
           {
             #if WSFFileDB_Debug == 1
-              Serial.print(F("DB RS: MoveNext reached EOF - size: "));
-              Serial.print(dwFileSize);
-              Serial.print(F(" pos: "));
-              Serial.println(this->m_dwPos);  
+				Serial.print(F("DB RS("));
+				Serial.print(this->m_pDB->m_szFile);
+				Serial.print(F("): "));
+				Serial.print(F("MoveNext reached EOF - size: "));
+				Serial.print(dwFileSize);
+				Serial.print(F(" pos: "));
+				Serial.println(this->m_dwPos);  
             #endif
             
             return false;
           };
   
-          this->m_dwPos += this->m_pDB->m_nEntrySize + 1;
+          this->m_dwPos += this->m_pDB->m_nEntrySize;
         }
         else
         {
@@ -117,10 +133,13 @@ bool    CWSFFileDBRecordset::moveNext()
         };
         
         #if WSFFileDB_Debug == 1
-          Serial.print(F("DB RS: Move next to: "));
-          Serial.print(this->m_dwPos);
-          Serial.print(F(" file size: "));
-          Serial.println(dwFileSize);
+			Serial.print(F("DB RS("));
+			Serial.print(this->m_pDB->m_szFile);
+			Serial.print(F("): "));
+			Serial.print(F("Move next to: "));
+			Serial.print(this->m_dwPos);
+			Serial.print(F(" file size: "));
+			Serial.println(dwFileSize);
         #endif
 
         if(this->m_pDB->readByteFromDataFile(this->m_dwPos) == 1)
@@ -132,8 +151,11 @@ bool    CWSFFileDBRecordset::moveNext()
 		else
 		{
 			#if WSFFileDB_Debug == 1
-			  Serial.print(F("DB RS: use-flag not matched at: "));
-			  Serial.println(this->m_dwPos);
+				Serial.print(F("DB RS("));
+				Serial.print(this->m_pDB->m_szFile);
+				Serial.print(F("): "));
+				Serial.print(F("use-flag not matched at: "));
+				Serial.println(this->m_dwPos);
 			#endif
 		};
 	  }
@@ -194,7 +216,10 @@ bool CWSFFileDBRecordset::setData(int nFieldIndex, void *pData, int nLength)
 			if(this->m_pDB->isOpen() == true)
 			{   
 				#if WSFFileDB_Debug == 1
-					Serial.print(F("DB RS: setData() - at: "));
+					Serial.print(F("DB RS("));
+					Serial.print(this->m_pDB->m_szFile);
+					Serial.print(F("): "));
+					Serial.print(F("setData() - at: "));
 					Serial.print(this->m_dwPos);
 					Serial.print(F(" pos: "));
 					Serial.println(nStartRead);  
