@@ -20,8 +20,8 @@
 
 //defines
 /////////
-#define WSFFileDB_Debug 1 //set to 0 if debugging is not used
-#define WSFFileDB_HeaderSize (sizeof(uint32_t) * 3)
+#define WSFFileDB_Debug 0 //set to 0 if debugging is not used
+#define WSFFileDB_HeaderSize (sizeof(uint32_t) * 4)
 
 
 /**

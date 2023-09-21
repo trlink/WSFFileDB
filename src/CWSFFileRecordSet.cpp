@@ -19,10 +19,6 @@ CWSFFileDBRecordset::CWSFFileDBRecordset(CWSFFileDB *pDB)
 
 CWSFFileDBRecordset::CWSFFileDBRecordset(CWSFFileDB *pDB, uint32_t dwPos)
 {
-	//variables
-	///////////
-	uint32_t dwFileSize;  
-
 	this->m_pDB             = pDB;
 	this->m_dwPos           = 0;
 	this->m_bHaveValidEntry = false;
@@ -30,12 +26,13 @@ CWSFFileDBRecordset::CWSFFileDBRecordset(CWSFFileDB *pDB, uint32_t dwPos)
 	//check pos
 	if(this->m_pDB->isOpen() == true)
 	{
-		dwFileSize = this->m_pDB->m_dwTableSize;
-
-		if((dwPos >= WSFFileDB_HeaderSize) && (dwPos <= (dwFileSize - (this->m_pDB->m_nEntrySize + 1))))
+		if((dwPos >= WSFFileDB_HeaderSize) && (dwPos <= (this->m_pDB->m_dwTableSize - this->m_pDB->m_nEntrySize)))
 		{
 			if(this->m_pDB->readByteFromDataFile(dwPos) == 1)
 			{
+				this->m_dwPos = dwPos;
+				this->m_bHaveValidEntry = true;
+				
 				#if WSFFileDB_Debug == 1
 					Serial.print(F("DB RS("));
 					Serial.print(this->m_pDB->m_szFile);
@@ -43,9 +40,6 @@ CWSFFileDBRecordset::CWSFFileDBRecordset(CWSFFileDB *pDB, uint32_t dwPos)
 					Serial.print(F("set pos to (on init): "));
 					Serial.println(this->m_dwPos);  
 				#endif
-
-				this->m_dwPos = dwPos;
-				this->m_bHaveValidEntry = true;
 				
 				return;
 			};
