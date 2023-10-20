@@ -140,7 +140,10 @@ bool CWSFFileDB::readHeader()
 				Serial.println(this->m_szFile); 
 			#endif
 			
-			if(this->m_file.size() != this->m_dwTableSize)
+			//since i write an extra byte when inserting at EOF, this does not indicate 
+			//an error, when the size differs by one byte... If it is more then <entry size>
+			//the size must be corrected, maybe the header is wrong, which normally indicates a db error
+			if((this->m_file.size() != this->m_dwTableSize) || ((this->m_file.size() - 1) != this->m_dwTableSize))
 			{
 				#if WSFFileDB_Debug == 1
 					Serial.print(F("DB ("));
@@ -153,6 +156,8 @@ bool CWSFFileDB::readHeader()
 				this->m_dwTableSize = this->m_file.size();
 			};
 
+			//check if fieldcount in header matches requested count, maybe
+			//the table layout was changed, indicate an error...
 			if(dwFieldCount != this->m_nFieldCount)
 			{
 				#if WSFFileDB_Debug == 1
@@ -529,8 +534,7 @@ bool CWSFFileDB::insertData(void **pData)
 			if(this->m_file.seek(this->m_dwNextFreePos) == 1)
 			{
 				this->m_file.write((byte*)&bData, nPos);
-				this->m_file.flush();
-
+				
 				#if WSFFileDB_Debug == 1
 					Serial.print(F("DB ("));
 					Serial.print(this->m_szFile);
@@ -546,6 +550,25 @@ bool CWSFFileDB::insertData(void **pData)
 				//increment rec count
 				this->m_dwRecordCount   += 1;
 				this->m_dwLastInsertPos  = this->m_dwNextFreePos;
+				
+				if(this->m_dwNextFreePos >= (this->m_dwTableSize - 1)) 
+				{
+					#if WSFFileDB_Debug == 1
+						Serial.print(F("DB ("));
+						Serial.print(this->m_szFile);
+						Serial.print(F("): "));
+						Serial.println(F("insertData() at EOF"));
+					#endif
+					
+					this->m_dwTableSize += this->m_nEntrySize;
+					
+					//append an unused indicator when writing at the end of the 
+					//file
+					this->m_file.write(0); 
+				};
+				
+				this->m_file.flush();
+
 
 				//try to find next insert pos by itterating 
 				//through the whole file...    
@@ -569,29 +592,17 @@ bool CWSFFileDB::insertData(void **pData)
 							Serial.println(bFree);
 						#endif  
 
-						if(bFree != 1)
+						if((bFree != 1) && (bFree == 0))
 						{
-							if(bFree != 0)
-							{
-								//set unused, when at EOF, something is read
-								this->m_file.seek(dwSeekPos);
-								this->m_file.write(0); 
-							};
-							
 							break;
 						}
 						else
 						{
-							//check if we are at EOF
-							if(dwSeekPos >= this->m_dwTableSize)
+							if(bFree != 1)
 							{
-								//set to EOF
-								this->m_dwTableSize = dwSeekPos + this->m_nEntrySize;
-								dwSeekPos  			= this->m_dwTableSize;
-								
-								//set unused
-								this->m_file.seek(dwSeekPos);
+								//set unused, when something else is read
 								this->m_file.write(0); 
+								this->m_file.flush();
 								
 								break;
 							};
@@ -608,17 +619,11 @@ bool CWSFFileDB::insertData(void **pData)
 							Serial.print(F("insertData() EOF: failed to seek to: "));
 							Serial.println(dwSeekPos);
 						#endif 
-						
-						this->m_dwTableSize = dwSeekPos;
-						
-						//set unused
-						this->m_file.seek(dwSeekPos);
-						this->m_file.write(0); 
-						
+												
 						break;
 					};
 				} 
-				while(bFree == 1);
+				while((bFree == 1) && (dwSeekPos < this->m_dwTableSize));
 				
 			  
 				#if WSFFileDB_Debug == 1
@@ -632,11 +637,6 @@ bool CWSFFileDB::insertData(void **pData)
 				#endif  
 
 				this->m_dwNextFreePos = dwSeekPos;
-
-				//correct the file, in case something got weird...
-				this->m_file.seek(this->m_dwNextFreePos);
-				this->m_file.write(0);  //set entry free
-				this->m_file.flush();
 			}
 			else
 			{
