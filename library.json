@@ -1,0 +1,22 @@
+{
+  "name":"WSFFileDB",
+  "description":"Database library to store data on a SD-card.",
+  "keywords":"Database",
+  "authors":
+  {
+    "name": "Christian Wallukat",
+    "maintainer": true
+  },
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/trlink/WSFFileDB"
+  },
+  "version": "1.1.1",
+  "license": "LGPL-3.0",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "build": {
+    "libCompatMode": 2
+  }  
+}

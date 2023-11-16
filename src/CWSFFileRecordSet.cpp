@@ -28,6 +28,8 @@ CWSFFileDBRecordset::CWSFFileDBRecordset(CWSFFileDB *pDB, uint32_t dwPos)
 	{
 		if((dwPos >= WSFFileDB_HeaderSize) && (dwPos <= (this->m_pDB->m_dwTableSize - this->m_pDB->m_nEntrySize)))
 		{
+			this->m_pDB->enterCriticalSection();
+			
 			if(this->m_pDB->readByteFromDataFile(dwPos) == 1)
 			{
 				this->m_dwPos = dwPos;
@@ -41,8 +43,12 @@ CWSFFileDBRecordset::CWSFFileDBRecordset(CWSFFileDB *pDB, uint32_t dwPos)
 					Serial.println(this->m_dwPos);  
 				#endif
 				
+				this->m_pDB->leaveCriticalSection();
+				
 				return;
 			};
+			
+			this->m_pDB->leaveCriticalSection();
 		};
 	};
 	
@@ -89,74 +95,107 @@ bool    CWSFFileDBRecordset::moveFirst()
 
 bool    CWSFFileDBRecordset::moveNext()
 {
-  //variables
-  ///////////
-  uint32_t dwFileSize;
-  
-  
-  this->m_bHaveValidEntry = false;
-  
-  if(this->m_pDB->isOpen() == true)
-  {
-      dwFileSize = this->m_pDB->m_dwTableSize;
-      
-      do
-      {
-        if((this->m_dwPos >= WSFFileDB_HeaderSize) || (dwFileSize <= WSFFileDB_HeaderSize))
-        {
-          if((this->m_dwPos + this->m_pDB->m_nEntrySize) >= dwFileSize)
-          {
-            #if WSFFileDB_Debug == 1
-				Serial.print(F("DB RS("));
-				Serial.print(this->m_pDB->m_szFile);
-				Serial.print(F("): "));
-				Serial.print(F("MoveNext reached EOF - size: "));
-				Serial.print(dwFileSize);
-				Serial.print(F(" pos: "));
-				Serial.println(this->m_dwPos);  
-            #endif
-            
-            return false;
-          };
-  
-          this->m_dwPos += this->m_pDB->m_nEntrySize;
-        }
-        else
-        {
-          this->m_dwPos = WSFFileDB_HeaderSize;
-        };
-        
-        #if WSFFileDB_Debug == 1
-			Serial.print(F("DB RS("));
-			Serial.print(this->m_pDB->m_szFile);
-			Serial.print(F("): "));
-			Serial.print(F("Move next to: "));
-			Serial.print(this->m_dwPos);
-			Serial.print(F(" file size: "));
-			Serial.println(dwFileSize);
-        #endif
+	//variables
+	///////////
+	uint32_t dwFileSize;
 
-        if(this->m_pDB->readByteFromDataFile(this->m_dwPos) == 1)
-        {
-			this->m_bHaveValidEntry = true;
 
-			return true;		 
-        }
-		else
+	this->m_bHaveValidEntry = false;
+
+	if(this->m_pDB->isOpen() == true)
+	{
+		this->m_pDB->enterCriticalSection();
+		
+		dwFileSize = this->m_pDB->m_dwTableSize;
+
+		do
 		{
+			if((this->m_dwPos >= WSFFileDB_HeaderSize) || (dwFileSize <= WSFFileDB_HeaderSize))
+			{
+				if((this->m_dwPos + this->m_pDB->m_nEntrySize) >= dwFileSize)
+				{
+					#if WSFFileDB_Debug == 1
+						Serial.print(F("DB RS("));
+						Serial.print(this->m_pDB->m_szFile);
+						Serial.print(F("): "));
+						Serial.print(F("MoveNext reached EOF - size: "));
+						Serial.print(dwFileSize);
+						Serial.print(F(" pos: "));
+						Serial.println(this->m_dwPos);  
+					#endif
+					
+					this->m_pDB->leaveCriticalSection();
+
+					return false;
+				};
+
+				this->m_dwPos += this->m_pDB->m_nEntrySize;
+				
+				if(this->m_dwPos > this->m_pDB->getMaxPosWritten())
+				{
+					#if WSFFileDB_Debug == 1
+						Serial.print(F("DB RS("));
+						Serial.print(this->m_pDB->m_szFile);
+						Serial.print(F("): "));
+						Serial.print(F("MoveNext past last entry - last: "));
+						Serial.print(this->m_pDB->getMaxPosWritten());
+						Serial.print(F(" pos: "));
+						Serial.println(this->m_dwPos);  
+					#endif
+					
+					this->m_pDB->leaveCriticalSection();
+					
+					return false;
+				};
+			}
+			else
+			{
+				#if WSFFileDB_Debug == 1
+					Serial.print(F("DB RS("));
+					Serial.print(this->m_pDB->m_szFile);
+					Serial.print(F("): "));
+					Serial.print(F("MoveNext set pos to start: "));
+					Serial.println(this->m_dwPos);  
+				#endif
+				
+				this->m_dwPos = WSFFileDB_HeaderSize;
+			};
+
 			#if WSFFileDB_Debug == 1
 				Serial.print(F("DB RS("));
 				Serial.print(this->m_pDB->m_szFile);
 				Serial.print(F("): "));
-				Serial.print(F("use-flag not matched at: "));
-				Serial.println(this->m_dwPos);
+				Serial.print(F("Move next to: "));
+				Serial.print(this->m_dwPos);
+				Serial.print(F(" file size: "));
+				Serial.println(dwFileSize);
 			#endif
-		};
-	  }
-      while(true);
-  };
 
-  return false;
+			if(this->m_pDB->readByteFromDataFile(this->m_dwPos) == 1)
+			{
+				this->m_bHaveValidEntry = true;
+
+				this->m_pDB->leaveCriticalSection();
+				
+				return true;		 
+			}
+			else
+			{
+				#if WSFFileDB_Debug == 1
+					Serial.print(F("DB RS("));
+					Serial.print(this->m_pDB->m_szFile);
+					Serial.print(F("): "));
+					Serial.print(F("use-flag not matched at: "));
+					Serial.println(this->m_dwPos);
+				#endif
+			};
+		}
+		while(true);
+		
+		this->m_pDB->leaveCriticalSection();
+	};
+	
+	return false;
 };
 
 
@@ -219,8 +258,10 @@ bool CWSFFileDBRecordset::setData(int nFieldIndex, void *pData, int nLength)
 					Serial.println(nStartRead);  
 				#endif
 
+				this->m_pDB->enterCriticalSection();
 				this->m_pDB->writeByteToDataFile(this->m_dwPos, 1);
 				this->m_pDB->writeToDataFile(this->m_dwPos + nStartRead, (byte*)pData, nWriteLen);
+				this->m_pDB->leaveCriticalSection();
 
 				return true;
 			};
@@ -261,11 +302,19 @@ bool CWSFFileDBRecordset::getData(int nFieldIndex, void *pData, int nMaxSize, bo
 				
 			if(this->m_pDB->isOpen() == true)
 			{
-				if(this->m_pDB->m_file)
-				{    
-					this->m_pDB->readFromDataFile(this->m_dwPos + nStartRead, (byte*)pData, nWriteLen);
-
+				this->m_pDB->enterCriticalSection();
+				
+				if(this->m_pDB->readFromDataFile(this->m_dwPos + nStartRead, (byte*)pData, nWriteLen) != -1)
+				{
+					this->m_pDB->leaveCriticalSection();
+					
 					return true;
+				}
+				else
+				{
+					this->m_pDB->leaveCriticalSection();
+					
+					return false;
 				};
 			};
 		};
