@@ -3,23 +3,9 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <FS.h>
-#include <SD.h>
+#include <SPIFFS.h>
 #include "CWSFFileDB.h"
 
-
-
-#define HARDWARE_SDCARD_MISO 13
-#define HARDWARE_SDCARD_MOSI 23
-#define HARDWARE_SDCARD_SCK  2 //bad choice!
-#define HARDWARE_SDCARD_CS   22
-
-#define HARDWARE_MAX_FILES   15
-
-
-
-//variables
-///////////
-SPIClass g_spiSD(VSPI);  
 
 
 void setup() 
@@ -27,18 +13,17 @@ void setup()
   // put your setup code here, to run once:
   Serial.begin(115200);
 
-  Serial.println(F("Init SDCARD"));
+  Serial.println(F("Init SPIFFS"));
     
-  g_spiSD.begin(HARDWARE_SDCARD_SCK, HARDWARE_SDCARD_MISO, HARDWARE_SDCARD_MOSI, HARDWARE_SDCARD_CS);
   
-  if(SD.begin(HARDWARE_SDCARD_CS, g_spiSD, 4000000, "/sd", HARDWARE_MAX_FILES, false) == false)
+  if(SPIFFS.begin() == false)
   {
-    Serial.println(F("Failed to mount SD Card"));
+    Serial.println(F("Failed to mount SPIFFS"));
   };
 
 
   //remove old table
-  SD.remove("/data.tbl");
+  SPIFFS.remove("/data.tbl");
 
 
   //create the table definition:
@@ -47,7 +32,7 @@ void setup()
   int nFields[] = {sizeof(uint32_t), sizeof(uint32_t), 25};
 
   
-  CWSFFileDB db((fs::SDFS*)&SD, "/data.tbl", (int*)&nFields, 3, true);
+  CWSFFileDB db(&SPIFFS, "/data.tbl", (int*)&nFields, 3, true, 50);
 
   if(db.open() == true)
   {

@@ -733,7 +733,11 @@ bool CWSFFileDB::insertData(void **pData)
 			//copy data
 			for(int n = 0; n < this->m_nFieldCount; ++n)
 			{
-				memcpy((byte*)&bData + nPos, (byte*)pData[n], this->m_pFields[n]); 
+				if(pData[n] != NULL)
+				{
+					memcpy((byte*)&bData + nPos, (byte*)pData[n], this->m_pFields[n]); 
+				};
+				
 				nPos += this->m_pFields[n];
 			};
 
