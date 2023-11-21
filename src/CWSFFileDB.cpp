@@ -395,21 +395,32 @@ bool CWSFFileDB::open()
 						this->m_file.write((byte*)&bData, WSFFileDB_HeaderSize + 1);
 						this->m_file.flush();
 					};
-
-				
-					this->m_bDbOpen       	= true;
-					this->m_dwRecordCount 	= 0;
-					this->m_dwNextFreePos 	= WSFFileDB_HeaderSize;
-					this->m_dwTableSize   	= this->m_file.size();
-					this->m_dwLastInsertPos = 0;
-					this->m_dwMaxPosWritten = 0;
-
-					bRes = this->writeHeader();
-
+					
 					this->m_file.close();
-
+					
 					//reopen...
 					bRes = this->openWrite();
+
+					if(bRes == true)
+					{
+						this->m_bDbOpen       	= true;
+						this->m_dwRecordCount 	= 0;
+						this->m_dwNextFreePos 	= WSFFileDB_HeaderSize;
+						this->m_dwTableSize   	= this->m_file.size();
+						this->m_dwLastInsertPos = 0;
+						this->m_dwMaxPosWritten = 0;
+
+						bRes = this->writeHeader();
+					}
+					else
+					{
+						#if WSFFileDB_Debug == 1
+							Serial.print(F("DB ("));
+							Serial.print(this->m_szFile);
+							Serial.print(F("): "));
+							Serial.println(F("unable to open file after reserve!"));
+						#endif
+					};	
 				}
 				else
 				{
@@ -719,23 +730,23 @@ bool CWSFFileDB::insertData(void **pData)
 	///////////
 	int      nPos = 0;
 	uint32_t dwSeekPos = WSFFileDB_HeaderSize;
-	byte 	 bData[this->m_nEntrySize + 2];
+	byte 	 *pDataInsert = new byte[this->m_nEntrySize + 2];
 	byte     bFree;
 
-	if(this->m_bDbOpen == true)
+	if((this->m_bDbOpen == true) && (pDataInsert != NULL))
 	{
 		if(this->m_file)
 		{
-			memset((byte*)&bData, 0, sizeof(bData));
+			memset(pDataInsert, 0, this->m_nEntrySize);
 
-			bData[nPos++] = 1; //set entry in use
+			pDataInsert[nPos++] = 1; //set entry in use
 
 			//copy data
 			for(int n = 0; n < this->m_nFieldCount; ++n)
 			{
 				if(pData[n] != NULL)
 				{
-					memcpy((byte*)&bData + nPos, (byte*)pData[n], this->m_pFields[n]); 
+					memcpy(pDataInsert + nPos, (byte*)pData[n], this->m_pFields[n]); 
 				};
 				
 				nPos += this->m_pFields[n];
@@ -759,7 +770,7 @@ bool CWSFFileDB::insertData(void **pData)
 					Serial.println(this->m_dwNextFreePos);
 				#endif
 				
-				if(this->m_file.write((byte*)&bData, nPos) > 0)
+				if(this->m_file.write(pDataInsert, nPos) > 0)
 				{
 					//update highest written pos
 					if(this->m_dwNextFreePos > this->m_dwMaxPosWritten)
@@ -873,6 +884,8 @@ bool CWSFFileDB::insertData(void **pData)
 					
 					xSemaphoreGive(this->m_mutex);
 					
+					delete pDataInsert;
+					
 					return false;
 				};	
 			}
@@ -890,15 +903,20 @@ bool CWSFFileDB::insertData(void **pData)
 				
 				xSemaphoreGive(this->m_mutex);
 				
+				delete pDataInsert;
+				
 				return false;
 			};
 			
 			xSemaphoreGive(this->m_mutex);
 			
-
+			delete pDataInsert;
+			
 			return this->writeHeader();
 		};
 	};
+	
+	delete pDataInsert;
 
 	return false;
 };
