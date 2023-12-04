@@ -45,6 +45,8 @@ CWSFFileDB::~CWSFFileDB()
   {
     this->m_file.close();
   };
+  
+  vSemaphoreDelete(this->m_mutex);
 };
 
 
